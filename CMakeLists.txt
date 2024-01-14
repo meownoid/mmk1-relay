@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.5.0)
-project(mmk1-playground VERSION 0.1.0 LANGUAGES C CXX)
+project(mmk1-relay VERSION 0.1.0 LANGUAGES C CXX)
 
 include(CTest)
 enable_testing()
 
 add_executable(
-    mmk1-playground 
+    mmk1-relay 
     main.cpp
     DeviceManager.h
     DeviceManager.cpp
