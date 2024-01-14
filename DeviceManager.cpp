@@ -11,16 +11,21 @@ namespace {
     const sl::Color COLOR_ON{0xff};
     const sl::Color COLOR_OFF{0x00};
 
-    const double PAD_THRESHOLD = 0.05;
-    const double VELOCITY_MOMENTUM = 0.1;
-    const double VELOCITY_EXPONENT = 0.5;
+    const double PAD_THRESHOLD_ON = 0.04;
+    const double PAD_THRESHOLD_OFF = 0.01;
+    const double VELOCITY_MOMENTUM = 0.8;
+    const double VELOCITY_EXPONENT = 0.6;
 
     const unsigned char START_NOTE = 36;
     const unsigned char MIDI_NOTE_ON = 144;
     const unsigned char MIDI_NOTE_OFF = 128;
+    const unsigned char MIDI_NOTE_AFTER_TOUCH = 160;
+    const unsigned char MIDI_NOTE_CC = 176;
+
+    const unsigned char CC[11] = {3, 9, 14, 15, 20, 21, 22, 23, 24, 25, 26};
 
     const std::chrono::milliseconds NOTE_ON_DELAY(5);
-    const std::chrono::milliseconds NOTE_OFF_DELAY(5);
+    const std::chrono::milliseconds NOTE_OFF_DELAY(10);
 }
 
 namespace sl {
@@ -45,12 +50,11 @@ DeviceManager::DeviceManager(DiscoveryPolicy discoveryPolicy_) : Client(discover
         std::cout << "Number of available MIDI output ports: " << nPorts << std::endl;
     }
 
+    std::cout << "Opening port 0" << std::endl;
     midiOut->openPort(0);
 
     noteMessage.resize(3, 0);
-
-    logTimes.reserve(10000);
-    logValues.reserve(10000);
+    ccMessage.resize(3, 0);
 }
 
 DeviceManager::~DeviceManager() {
@@ -64,35 +68,22 @@ void DeviceManager::render() {
 }
 
 void DeviceManager::buttonChanged(Device::Button button_, bool buttonState_, bool shiftState_) {
-    typedef std::chrono::milliseconds ms;
-    if ((button_ == Device::Button::GroupB) && buttonState_) {
-        std::cout << "Writing log file" << std::endl;
-        std::cout << "logValues.size() = " << logValues.size() << std::endl;
-        std::ofstream outputFile("log.txt", std::ios::out);
-        auto prevTime = std::chrono::duration_cast<ms>(logTimes[0].time_since_epoch()).count();
-        for (unsigned i = 0; i < logTimes.size(); i++) {
-            auto time = std::chrono::duration_cast<ms>(logTimes[i].time_since_epoch()).count() - prevTime;
-            prevTime = std::chrono::duration_cast<ms>(logTimes[i].time_since_epoch()).count();
-            auto value = logValues[i];
-            if (outputFile.is_open()) {
-                outputFile << time << "," << value << std::endl;
-            } else {
-                std::cout << "Failed to open log file!" << std::endl;
-            }
-        }
-        outputFile.flush();
-        outputFile.close();
-    }
-
     device()->setButtonLed(button_, buttonState_ ? COLOR_ON : COLOR_OFF);
     requestDeviceUpdate();
 }
 
 void DeviceManager::encoderChanged(unsigned encoder_, bool valueIncreased_, bool shiftPressed_) {
+    ccMessage[0] = MIDI_NOTE_CC;
+    ccMessage[1] = CC[encoder_];
+    ccMessage[2] = valueIncreased_ ? 65 : 63;
+
+    midiOut->sendMessage(&ccMessage);
+
     requestDeviceUpdate();
 }
 
 void DeviceManager::keyChanged(unsigned index_, double value_, bool shiftPressed_) {
+    // do nothing
 }
 
 void DeviceManager::keyUpdated(unsigned index_, double value_, bool shiftPressed_) {
@@ -102,10 +93,15 @@ void DeviceManager::keyUpdated(unsigned index_, double value_, bool shiftPressed
         return;
     }
 
-    unsigned char note = START_NOTE + static_cast<unsigned char>(index_);
-    double velocity = padVelocities[index_] * 127.0;
+    unsigned col = index_ % 4;
+    unsigned row = index_ / 4;
+    unsigned note = START_NOTE + 4 * (3 - row) + col;
+    double velocity = std::pow(padVelocities[index_], VELOCITY_EXPONENT) * 127.0;
 
-    if (action == PadAction::NOTE_ON) {
+    if (action == PadAction::NOTE_AFTERTOUCH) {
+        noteMessage[0] = MIDI_NOTE_AFTER_TOUCH;
+        device()->setKeyLed(index_, {static_cast<uint8_t>(velocity)});
+    } else if (action == PadAction::NOTE_ON) {
         noteMessage[0] = MIDI_NOTE_ON;
         device()->setKeyLed(index_, {static_cast<uint8_t>(velocity)});
     } else if (action == PadAction::NOTE_OFF) {
@@ -113,7 +109,7 @@ void DeviceManager::keyUpdated(unsigned index_, double value_, bool shiftPressed
         device()->setKeyLed(index_, {0x00});
     }
 
-    noteMessage[1] = note;
+    noteMessage[1] = static_cast<unsigned char>(note);
     noteMessage[2] = static_cast<unsigned char>(velocity);
 
     midiOut->sendMessage(&noteMessage);
@@ -121,10 +117,11 @@ void DeviceManager::keyUpdated(unsigned index_, double value_, bool shiftPressed
 }
 
 PadAction DeviceManager::processPadUpdate(unsigned index_, double value_) {
-    bool isPressed = value_ > PAD_THRESHOLD;
     PadState currentState = padStates[index_];
 
-    if (!isPressed) {
+    padVelocities[index_] = VELOCITY_MOMENTUM * padVelocities[index_] + (1.0 - VELOCITY_MOMENTUM) * value_;
+
+    if (padVelocities[index_] < PAD_THRESHOLD_OFF) {
         if (currentState == PadState::OFF) {
             return PadAction::NO_ACTION;
         }
@@ -132,14 +129,14 @@ PadAction DeviceManager::processPadUpdate(unsigned index_, double value_) {
         if (currentState == PadState::ON) {
             padStates[index_] = PadState::ON_TO_OFF;
             padTimes[index_] = std::chrono::steady_clock::now();
-            return PadAction::NO_ACTION;
+            return PadAction::NOTE_AFTERTOUCH;
         }
 
         if (currentState == PadState::ON_TO_OFF) {
             auto now = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - padTimes[index_]);
             if (elapsed < NOTE_OFF_DELAY) {
-                return PadAction::NO_ACTION;
+                return PadAction::NOTE_AFTERTOUCH;
             }
 
             padStates[index_] = PadState::OFF;
@@ -150,25 +147,25 @@ PadAction DeviceManager::processPadUpdate(unsigned index_, double value_) {
             padStates[index_] = PadState::OFF;
             return PadAction::NO_ACTION;
         }
-    } else {
+    }
+    
+    if (padVelocities[index_] > PAD_THRESHOLD_ON) {
         if (currentState == PadState::ON) {
-            return PadAction::NO_ACTION;
+            return PadAction::NOTE_AFTERTOUCH;
         }
 
         if (currentState == PadState::OFF) {
             padStates[index_] = PadState::OFF_TO_ON;
-            padVelocities[index_] = std::pow(value_, VELOCITY_EXPONENT);;
             padTimes[index_] = std::chrono::steady_clock::now();
             return PadAction::NO_ACTION;
         }
 
         if (currentState == PadState::ON_TO_OFF) {
             padStates[index_] = PadState::ON;
-            return PadAction::NO_ACTION;
+            return PadAction::NOTE_AFTERTOUCH;
         }
 
         if (currentState == PadState::OFF_TO_ON) {
-            padVelocities[index_] = VELOCITY_MOMENTUM * padVelocities[index_] + (1.0 - VELOCITY_MOMENTUM) * std::pow(value_, VELOCITY_EXPONENT);
             auto now = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - padTimes[index_]);
             if (elapsed < NOTE_ON_DELAY) {

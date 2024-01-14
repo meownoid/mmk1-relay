@@ -20,6 +20,7 @@ enum class PadAction: uint8_t
     NO_ACTION,
     NOTE_ON,
     NOTE_OFF,
+    NOTE_AFTERTOUCH,
 };
 
 class DeviceManager : public Client {
@@ -42,10 +43,8 @@ private:
     double padVelocities[16] = {0.0};
     std::chrono::steady_clock::time_point padTimes[16];
 
-    std::vector<std::chrono::steady_clock::time_point> logTimes;
-    std::vector<float> logValues;
-
     RtMidiOut *midiOut = 0;
     std::vector<unsigned char> noteMessage;
+    std::vector<unsigned char> ccMessage;
 };
 }
