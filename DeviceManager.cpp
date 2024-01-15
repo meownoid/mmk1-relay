@@ -7,6 +7,13 @@
 
 #include <cabl/gfx/TextDisplay.h>
 
+#define OSC_WRITE_STRING(buffer, ptr, str) \
+    std::strcpy(&buffer[ptr], str.c_str()); \
+    ptr += str.size() + 1; \
+    while (ptr & 0x03) { \
+        buffer[ptr++] = '\0'; \
+    }
+
 namespace {
     const sl::Color COLOR_ON{0xff};
     const sl::Color COLOR_OFF{0x00};
@@ -19,6 +26,10 @@ namespace {
     const std::chrono::milliseconds PAD_NOTE_OFF_DELAY(10);
 
     const double ENCODER_MULTIPLIER = 32.0;
+
+    const std::string OSC_PREFIX = "/mmk1/";
+    const std::string OSC_MESSAGE_ON = "on";
+    const std::string OSC_MESSAGE_OFF = "off";
 
     const unsigned char START_NOTE = 36;
     const unsigned char MIDI_NOTE_ON = 144;
@@ -65,12 +76,16 @@ DeviceManager::DeviceManager(
     std::cout << "Opening port " << midiPort << std::endl;
     midiOut->openPort(midiPort);
 
+    oscRemoteEndpoint = ip::udp::endpoint(ip::address::from_string(oscServerAddress), oscServerPort);
+    oscSocket.open(ip::udp::v4());
+
     noteMessage.resize(3, 0);
     ccMessage.resize(3, 0);
 }
 
 DeviceManager::~DeviceManager() {
     delete midiOut;
+    oscSocket.close();
 }
 
 void DeviceManager::initDevice() {
@@ -80,6 +95,64 @@ void DeviceManager::render() {
 }
 
 void DeviceManager::buttonChanged(Device::Button button_, bool buttonState_, bool shiftState_) {
+    std::string address("Unknown");
+
+    #define CASE_BUTTON(button) \
+        case Device::Button::button: \
+            address = #button; \
+            break;
+
+    switch (button_)
+    {
+    CASE_BUTTON(Control)
+    CASE_BUTTON(Step)
+    CASE_BUTTON(Browse)
+    CASE_BUTTON(Sampling)
+    CASE_BUTTON(BrowseLeft)
+    CASE_BUTTON(BrowseRight)
+    CASE_BUTTON(AutoWrite)
+    CASE_BUTTON(Snap)
+    CASE_BUTTON(DisplayButton1)
+    CASE_BUTTON(DisplayButton2)
+    CASE_BUTTON(DisplayButton3)
+    CASE_BUTTON(DisplayButton4)
+    CASE_BUTTON(DisplayButton5)
+    CASE_BUTTON(DisplayButton6)
+    CASE_BUTTON(DisplayButton7)
+    CASE_BUTTON(DisplayButton8)
+    CASE_BUTTON(Scene)
+    CASE_BUTTON(Pattern)
+    CASE_BUTTON(PadMode)
+    CASE_BUTTON(Navigate)
+    CASE_BUTTON(Duplicate)
+    CASE_BUTTON(Select)
+    CASE_BUTTON(Solo)
+    CASE_BUTTON(Mute)
+    CASE_BUTTON(GroupA)
+    CASE_BUTTON(GroupB)
+    CASE_BUTTON(GroupC)
+    CASE_BUTTON(GroupD)
+    CASE_BUTTON(GroupE)
+    CASE_BUTTON(GroupF)
+    CASE_BUTTON(GroupG)
+    CASE_BUTTON(GroupH)
+    CASE_BUTTON(Restart)
+    CASE_BUTTON(TransportLeft)
+    CASE_BUTTON(TransportRight)
+    CASE_BUTTON(Grid)
+    CASE_BUTTON(Play)
+    CASE_BUTTON(Rec)
+    CASE_BUTTON(Erase)
+    CASE_BUTTON(Shift)
+    CASE_BUTTON(NoteRepeat)
+    default:
+        break;
+    }
+
+    #undef CASE_BUTTON
+
+    sendOSCMessage(OSC_PREFIX + address, buttonState_ ? OSC_MESSAGE_ON : OSC_MESSAGE_OFF);
+
     device()->setButtonLed(button_, buttonState_ ? COLOR_ON : COLOR_OFF);
     requestDeviceUpdate();
 }
@@ -103,6 +176,7 @@ void DeviceManager::encoderChangedRaw(unsigned encoder_, double delta_, bool shi
     }
 
     midiOut->sendMessage(&ccMessage);
+    requestDeviceUpdate();
 }
 
 void DeviceManager::keyChanged(unsigned index_, double value_, bool shiftPressed_) {
@@ -201,5 +275,23 @@ PadAction DeviceManager::processPadUpdate(unsigned index_, double value_) {
     }
 
     return PadAction::NO_ACTION;
+}
+
+void DeviceManager::sendOSCMessage(std::string address, std::string value) {
+    if (!oscSocket.is_open()) {
+        oscSocket.open(ip::udp::v4());
+    }
+
+    unsigned ptr = 0;
+    OSC_WRITE_STRING(oscBuffer, ptr, address);
+    if (value.size() > 0) {
+        OSC_WRITE_STRING(oscBuffer, ptr, std::string(",s"));
+        OSC_WRITE_STRING(oscBuffer, ptr, value);
+    } else {
+        OSC_WRITE_STRING(oscBuffer, ptr, std::string(","));
+    }
+
+    boost::system::error_code error;
+    oscSocket.send_to(buffer(oscBuffer, ptr), oscRemoteEndpoint, 0, error);
 }
 }

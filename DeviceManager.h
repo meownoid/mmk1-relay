@@ -5,6 +5,8 @@
 #include <RtMidi.h>
 #include <boost/asio.hpp>
 
+#define OSC_BUFFER_SIZE 1024
+
 namespace sl {
 using namespace cabl;
 using namespace boost::asio;
@@ -47,6 +49,8 @@ public:
 private:
     PadAction processPadUpdate(unsigned index_, double value_);
 
+    void sendOSCMessage(std::string address, std::string value);
+
     PadState padStates[16] = {PadState::OFF};
     double padVelocities[16] = {0.0};
     std::chrono::steady_clock::time_point padTimes[16];
@@ -54,5 +58,11 @@ private:
     RtMidiOut *midiOut = 0;
     std::vector<unsigned char> noteMessage;
     std::vector<unsigned char> ccMessage;
+
+    io_service oscIOService;
+    ip::udp::endpoint oscRemoteEndpoint;
+    ip::udp::socket oscSocket = ip::udp::socket(oscIOService);
+
+    char oscBuffer[OSC_BUFFER_SIZE] = {0};
 };
 }

@@ -12,8 +12,8 @@ int main(int argc, char** argv) {
     cxxopts::Options options("mmk1-relay", "Machine MK1 Relay");
     options.add_options()
         ("m,midi-port", "MIDI port number", cxxopts::value<int>()->default_value("0"))
-        ("o,osc-server", "OSC server address", cxxopts::value<std::string>()->default_value(""))
-        ("p,osc-port", "OSC server port", cxxopts::value<int>()->default_value("0"));
+        ("o,osc-server", "OSC server address", cxxopts::value<std::string>()->default_value("127.0.0.1"))
+        ("p,osc-port", "OSC server port", cxxopts::value<int>()->default_value("7099"));
 
     auto result = options.parse(argc, argv);
 
