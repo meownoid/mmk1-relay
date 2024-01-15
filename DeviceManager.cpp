@@ -27,7 +27,8 @@ namespace {
 
     const double ENCODER_MULTIPLIER = 32.0;
 
-    const std::string OSC_PREFIX = "/mmk1/";
+    const std::string OSC_PREFIX = "/MMK1/";
+    const std::string OSC_SHIFT_PREFIX = "/MMK1/Shift/";
     const std::string OSC_MESSAGE_ON = "on";
     const std::string OSC_MESSAGE_OFF = "off";
 
@@ -49,7 +50,8 @@ DeviceManager::DeviceManager(
         DiscoveryPolicy discoveryPolicy_,
         int midiPort,
         std::string oscServerAddress,
-        int oscServerPort
+        int oscServerPort,
+        bool invertLEDs_
     ) : Client(discoveryPolicy_) {
     try {
         midiOut = new RtMidiOut();
@@ -81,6 +83,8 @@ DeviceManager::DeviceManager(
 
     noteMessage.resize(3, 0);
     ccMessage.resize(3, 0);
+
+    invertLEDs = invertLEDs_;
 }
 
 DeviceManager::~DeviceManager() {
@@ -89,6 +93,10 @@ DeviceManager::~DeviceManager() {
 }
 
 void DeviceManager::initDevice() {
+    for(unsigned i  = static_cast<unsigned>(Device::Button::Control); i < static_cast<unsigned>(Device::Button::Unknown); i++)
+    {
+        device()->setButtonLed(static_cast<Device::Button>(i), invertLEDs ? COLOR_ON : COLOR_OFF);
+    }
 }
 
 void DeviceManager::render() {
@@ -151,9 +159,20 @@ void DeviceManager::buttonChanged(Device::Button button_, bool buttonState_, boo
 
     #undef CASE_BUTTON
 
-    sendOSCMessage(OSC_PREFIX + address, buttonState_ ? OSC_MESSAGE_ON : OSC_MESSAGE_OFF);
+    if (shiftState_) {
+        if (buttonState_) {
+            bool state = !buttonShiftState[static_cast<unsigned>(button_)];
+            buttonShiftState[static_cast<unsigned>(button_)] = state;
 
-    device()->setButtonLed(button_, buttonState_ ? COLOR_ON : COLOR_OFF);
+            sendOSCMessage(OSC_SHIFT_PREFIX + address, state ? OSC_MESSAGE_ON : OSC_MESSAGE_OFF);
+            device()->setButtonLed(button_, state ? (invertLEDs ? COLOR_OFF : COLOR_ON) : (invertLEDs ? COLOR_ON : COLOR_OFF));
+        }
+    } else {
+        if (!buttonShiftState[static_cast<unsigned>(button_)]) {
+            sendOSCMessage(OSC_SHIFT_PREFIX + address, buttonState_ ? OSC_MESSAGE_ON : OSC_MESSAGE_OFF);
+            device()->setButtonLed(button_, buttonState_ ? (invertLEDs ? COLOR_OFF : COLOR_ON) : (invertLEDs ? COLOR_ON : COLOR_OFF));
+        }
+    }
     requestDeviceUpdate();
 }
 

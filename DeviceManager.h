@@ -33,7 +33,8 @@ public:
         DiscoveryPolicy = {},
         int midiPort = 0,
         std::string oscServerAddress = "",
-        int oscServerPort = 0
+        int oscServerPort = 0,
+        bool invertLEDs = false
     );
     ~DeviceManager();
 
@@ -64,5 +65,9 @@ private:
     ip::udp::socket oscSocket = ip::udp::socket(oscIOService);
 
     char oscBuffer[OSC_BUFFER_SIZE] = {0};
+
+    bool buttonShiftState[static_cast<unsigned>(Device::Button::Unknown)] = {false};
+
+    bool invertLEDs = false;
 };
 }
