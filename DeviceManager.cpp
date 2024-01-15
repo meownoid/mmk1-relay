@@ -78,6 +78,8 @@ DeviceManager::DeviceManager(
     std::cout << "Opening port " << midiPort << std::endl;
     midiOut->openPort(midiPort);
 
+    std::cout << "Will send OSC messages to " << oscServerAddress << ":" << oscServerPort << std::endl;
+
     oscRemoteEndpoint = ip::udp::endpoint(ip::address::from_string(oscServerAddress), oscServerPort);
     oscSocket.open(ip::udp::v4());
 
@@ -97,9 +99,19 @@ void DeviceManager::initDevice() {
     {
         device()->setButtonLed(static_cast<Device::Button>(i), invertLEDs ? COLOR_ON : COLOR_OFF);
     }
+    
+    displayText = "Initialised";
 }
 
 void DeviceManager::render() {
+    if (displayText == lastDisplayText) {
+        return;
+    }
+
+    device()->graphicDisplay(0)->black();
+    device()->graphicDisplay(0)->putText(10, 25, displayText.c_str(), COLOR_ON, "big");
+
+    lastDisplayText = displayText;
 }
 
 void DeviceManager::buttonChanged(Device::Button button_, bool buttonState_, bool shiftState_) {
@@ -169,11 +181,10 @@ void DeviceManager::buttonChanged(Device::Button button_, bool buttonState_, boo
         }
     } else {
         if (!buttonShiftState[static_cast<unsigned>(button_)]) {
-            sendOSCMessage(OSC_SHIFT_PREFIX + address, buttonState_ ? OSC_MESSAGE_ON : OSC_MESSAGE_OFF);
+            sendOSCMessage(OSC_PREFIX + address, buttonState_ ? OSC_MESSAGE_ON : OSC_MESSAGE_OFF);
             device()->setButtonLed(button_, buttonState_ ? (invertLEDs ? COLOR_OFF : COLOR_ON) : (invertLEDs ? COLOR_ON : COLOR_OFF));
         }
     }
-    requestDeviceUpdate();
 }
 
 void DeviceManager::encoderChanged(unsigned encoder_, bool valueIncreased_, bool shiftPressed_) {
@@ -194,8 +205,10 @@ void DeviceManager::encoderChangedRaw(unsigned encoder_, double delta_, bool shi
         );
     }
 
-    midiOut->sendMessage(&ccMessage);
+    displayText = "CC " + std::to_string(CC[encoder_]);
     requestDeviceUpdate();
+
+    midiOut->sendMessage(&ccMessage);
 }
 
 void DeviceManager::keyChanged(unsigned index_, double value_, bool shiftPressed_) {
@@ -220,6 +233,8 @@ void DeviceManager::keyUpdated(unsigned index_, double value_, bool shiftPressed
     } else if (action == PadAction::NOTE_ON) {
         noteMessage[0] = MIDI_NOTE_ON;
         device()->setKeyLed(index_, {static_cast<uint8_t>(velocity)});
+        displayText = "Note " + std::to_string(note);
+        requestDeviceUpdate();
     } else if (action == PadAction::NOTE_OFF) {
         noteMessage[0] = MIDI_NOTE_OFF;
         device()->setKeyLed(index_, {0x00});
@@ -229,7 +244,6 @@ void DeviceManager::keyUpdated(unsigned index_, double value_, bool shiftPressed
     noteMessage[2] = static_cast<unsigned char>(velocity);
 
     midiOut->sendMessage(&noteMessage);
-    requestDeviceUpdate();
 }
 
 PadAction DeviceManager::processPadUpdate(unsigned index_, double value_) {
@@ -300,6 +314,9 @@ void DeviceManager::sendOSCMessage(std::string address, std::string value) {
     if (!oscSocket.is_open()) {
         oscSocket.open(ip::udp::v4());
     }
+
+    displayText = address;
+    requestDeviceUpdate();
 
     unsigned ptr = 0;
     OSC_WRITE_STRING(oscBuffer, ptr, address);

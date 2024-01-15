@@ -69,5 +69,8 @@ private:
     bool buttonShiftState[static_cast<unsigned>(Device::Button::Unknown)] = {false};
 
     bool invertLEDs = false;
+
+    std::string lastDisplayText = "";
+    std::string displayText = "";
 };
 }
