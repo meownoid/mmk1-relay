@@ -3,9 +3,11 @@
 #include <chrono>
 #include <cabl/cabl.h>
 #include <RtMidi.h>
+#include <boost/asio.hpp>
 
 namespace sl {
 using namespace cabl;
+using namespace boost::asio;
 
 enum class PadState: uint8_t
 {
@@ -25,7 +27,12 @@ enum class PadAction: uint8_t
 
 class DeviceManager : public Client {
 public:
-    DeviceManager(DiscoveryPolicy = {});
+    DeviceManager(
+        DiscoveryPolicy = {},
+        int midiPort = 0,
+        std::string oscServerAddress = "",
+        int oscServerPort = 0
+    );
     ~DeviceManager();
 
     void initDevice() override;

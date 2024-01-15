@@ -13,8 +13,12 @@ namespace {
 
     const double PAD_THRESHOLD_ON = 0.04;
     const double PAD_THRESHOLD_OFF = 0.01;
-    const double VELOCITY_MOMENTUM = 0.8;
-    const double VELOCITY_EXPONENT = 0.6;
+    const double PAD_VELOCITY_MOMENTUM = 0.8;
+    const double PAD_VELOCITY_EXPONENT = 0.6;
+    const std::chrono::milliseconds PAD_NOTE_ON_DELAY(5);
+    const std::chrono::milliseconds PAD_NOTE_OFF_DELAY(10);
+
+    const double ENCODER_MULTIPLIER = 32.0;
 
     const unsigned char START_NOTE = 36;
     const unsigned char MIDI_NOTE_ON = 144;
@@ -23,16 +27,19 @@ namespace {
     const unsigned char MIDI_NOTE_CC = 176;
 
     const unsigned char CC[11] = {3, 9, 14, 15, 20, 21, 22, 23, 24, 25, 26};
-
-    const std::chrono::milliseconds NOTE_ON_DELAY(5);
-    const std::chrono::milliseconds NOTE_OFF_DELAY(10);
 }
 
 namespace sl {
 using namespace cabl;
 using namespace std::placeholders;
+using namespace boost::asio;
 
-DeviceManager::DeviceManager(DiscoveryPolicy discoveryPolicy_) : Client(discoveryPolicy_) {
+DeviceManager::DeviceManager(
+        DiscoveryPolicy discoveryPolicy_,
+        int midiPort,
+        std::string oscServerAddress,
+        int oscServerPort
+    ) : Client(discoveryPolicy_) {
     try {
         midiOut = new RtMidiOut();
     }
@@ -50,8 +57,13 @@ DeviceManager::DeviceManager(DiscoveryPolicy discoveryPolicy_) : Client(discover
         std::cout << "Number of available MIDI output ports: " << nPorts << std::endl;
     }
 
-    std::cout << "Opening port 0" << std::endl;
-    midiOut->openPort(0);
+    if (midiPort >= nPorts) {
+        std::cout << "Invalid MIDI port number!" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    std::cout << "Opening port " << midiPort << std::endl;
+    midiOut->openPort(midiPort);
 
     noteMessage.resize(3, 0);
     ccMessage.resize(3, 0);
@@ -82,11 +94,11 @@ void DeviceManager::encoderChangedRaw(unsigned encoder_, double delta_, bool shi
 
     if (delta_ > 0) {
         ccMessage[2] = static_cast<unsigned char>(
-            std::max(65.0, std::min(127.0, 65.0 + delta_ * 32.0))
+            std::max(65.0, std::min(127.0, 65.0 + delta_ * ENCODER_MULTIPLIER))
         );
     } else {
         ccMessage[2] = static_cast<unsigned char>(
-            std::max(1.0, std::min(64.0, -delta_ * 32.0))
+            std::max(1.0, std::min(64.0, -delta_ * ENCODER_MULTIPLIER))
         );
     }
 
@@ -107,7 +119,7 @@ void DeviceManager::keyUpdated(unsigned index_, double value_, bool shiftPressed
     unsigned col = index_ % 4;
     unsigned row = index_ / 4;
     unsigned note = START_NOTE + 4 * (3 - row) + col;
-    double velocity = std::pow(padVelocities[index_], VELOCITY_EXPONENT) * 127.0;
+    double velocity = std::pow(padVelocities[index_], PAD_VELOCITY_EXPONENT) * 127.0;
 
     if (action == PadAction::NOTE_AFTERTOUCH) {
         noteMessage[0] = MIDI_NOTE_AFTER_TOUCH;
@@ -130,7 +142,7 @@ void DeviceManager::keyUpdated(unsigned index_, double value_, bool shiftPressed
 PadAction DeviceManager::processPadUpdate(unsigned index_, double value_) {
     PadState currentState = padStates[index_];
 
-    padVelocities[index_] = VELOCITY_MOMENTUM * padVelocities[index_] + (1.0 - VELOCITY_MOMENTUM) * value_;
+    padVelocities[index_] = PAD_VELOCITY_MOMENTUM * padVelocities[index_] + (1.0 - PAD_VELOCITY_MOMENTUM) * value_;
 
     if (padVelocities[index_] < PAD_THRESHOLD_OFF) {
         if (currentState == PadState::OFF) {
@@ -146,7 +158,7 @@ PadAction DeviceManager::processPadUpdate(unsigned index_, double value_) {
         if (currentState == PadState::ON_TO_OFF) {
             auto now = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - padTimes[index_]);
-            if (elapsed < NOTE_OFF_DELAY) {
+            if (elapsed < PAD_NOTE_OFF_DELAY) {
                 return PadAction::NOTE_AFTERTOUCH;
             }
 
@@ -179,7 +191,7 @@ PadAction DeviceManager::processPadUpdate(unsigned index_, double value_) {
         if (currentState == PadState::OFF_TO_ON) {
             auto now = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - padTimes[index_]);
-            if (elapsed < NOTE_ON_DELAY) {
+            if (elapsed < PAD_NOTE_ON_DELAY) {
                 return PadAction::NO_ACTION;
             }
 
