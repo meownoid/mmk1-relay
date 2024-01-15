@@ -33,6 +33,7 @@ public:
 
     void buttonChanged(Device::Button button_, bool buttonState_, bool shiftState_) override;
     void encoderChanged(unsigned encoder_, bool valueIncreased_, bool shiftPressed_) override;
+    void encoderChangedRaw(unsigned encoder_, double delta_, bool shiftPressed_) override;
     void keyChanged(unsigned index_, double value_, bool shiftPressed) override;
     void keyUpdated(unsigned index_, double value_, bool shiftPressed) override;
 

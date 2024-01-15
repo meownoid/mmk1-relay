@@ -73,13 +73,24 @@ void DeviceManager::buttonChanged(Device::Button button_, bool buttonState_, boo
 }
 
 void DeviceManager::encoderChanged(unsigned encoder_, bool valueIncreased_, bool shiftPressed_) {
+    // do nothing
+}
+
+void DeviceManager::encoderChangedRaw(unsigned encoder_, double delta_, bool shiftPressed_) {
     ccMessage[0] = MIDI_NOTE_CC;
     ccMessage[1] = CC[encoder_];
-    ccMessage[2] = valueIncreased_ ? 65 : 63;
+
+    if (delta_ > 0) {
+        ccMessage[2] = static_cast<unsigned char>(
+            std::max(65.0, std::min(127.0, 65.0 + delta_ * 32.0))
+        );
+    } else {
+        ccMessage[2] = static_cast<unsigned char>(
+            std::max(1.0, std::min(64.0, -delta_ * 32.0))
+        );
+    }
 
     midiOut->sendMessage(&ccMessage);
-
-    requestDeviceUpdate();
 }
 
 void DeviceManager::keyChanged(unsigned index_, double value_, bool shiftPressed_) {
