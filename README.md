@@ -16,7 +16,7 @@ Check out command line arguments and their descriptions.
 
 ## Installation
 
-To begin, clone and build the **modified** version of the [cabl](https://github.com/meownoid/cabl) library.
+To begin, clone and build the [modified version]((https://github.com/meownoid/cabl)) of the cabl library.
 
 Next, make sure to install required dependencies.
 
