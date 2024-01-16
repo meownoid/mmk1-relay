@@ -30,7 +30,6 @@ Clone the repository alongside the `cabl` (so both `cabl` and `mmk1-relay` are i
 git clone https://github.com/meownoid/mmk1-relay.git
 cd mmk1-relay
 ```
-```
 
 ```
 mkdir build && cd build
