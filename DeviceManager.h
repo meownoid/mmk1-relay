@@ -34,7 +34,9 @@ public:
         int midiPort = 0,
         std::string oscServerAddress = "",
         int oscServerPort = 0,
-        bool invertLEDs = false
+        bool invertLEDs = false,
+        bool invertShift = false,
+        std::string secondDisplayText_ = ""
     );
     ~DeviceManager();
 
@@ -69,7 +71,9 @@ private:
     bool buttonShiftState[static_cast<unsigned>(Device::Button::Unknown)] = {false};
 
     bool invertLEDs = false;
+    bool invertShift = false;
 
+    std::string secondDisplayText = "";
     std::string lastDisplayText = "";
     std::string displayText = "";
 };

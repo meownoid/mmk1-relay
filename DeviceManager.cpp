@@ -51,7 +51,9 @@ DeviceManager::DeviceManager(
         int midiPort,
         std::string oscServerAddress,
         int oscServerPort,
-        bool invertLEDs_
+        bool invertLEDs_,
+        bool invertShift_,
+        std::string secondDisplayText_
     ) : Client(discoveryPolicy_) {
     try {
         midiOut = new RtMidiOut();
@@ -87,6 +89,9 @@ DeviceManager::DeviceManager(
     ccMessage.resize(3, 0);
 
     invertLEDs = invertLEDs_;
+    invertShift = invertShift_;
+
+    secondDisplayText = secondDisplayText_;
 }
 
 DeviceManager::~DeviceManager() {
@@ -99,6 +104,9 @@ void DeviceManager::initDevice() {
     {
         device()->setButtonLed(static_cast<Device::Button>(i), invertLEDs ? COLOR_ON : COLOR_OFF);
     }
+
+    device()->graphicDisplay(1)->black();
+    device()->graphicDisplay(1)->putText(10, 25, secondDisplayText.c_str(), COLOR_ON, "big");
     
     displayText = "Initialised";
 }
@@ -171,18 +179,18 @@ void DeviceManager::buttonChanged(Device::Button button_, bool buttonState_, boo
 
     #undef CASE_BUTTON
 
-    if (shiftState_) {
+    if (shiftState_ ^ invertShift) {
         if (buttonState_) {
             bool state = !buttonShiftState[static_cast<unsigned>(button_)];
             buttonShiftState[static_cast<unsigned>(button_)] = state;
 
             sendOSCMessage(OSC_SHIFT_PREFIX + address, state ? OSC_MESSAGE_ON : OSC_MESSAGE_OFF);
-            device()->setButtonLed(button_, state ? (invertLEDs ? COLOR_OFF : COLOR_ON) : (invertLEDs ? COLOR_ON : COLOR_OFF));
+            device()->setButtonLed(button_, state ^ invertLEDs ? COLOR_ON : COLOR_OFF);
         }
     } else {
         if (!buttonShiftState[static_cast<unsigned>(button_)]) {
             sendOSCMessage(OSC_PREFIX + address, buttonState_ ? OSC_MESSAGE_ON : OSC_MESSAGE_OFF);
-            device()->setButtonLed(button_, buttonState_ ? (invertLEDs ? COLOR_OFF : COLOR_ON) : (invertLEDs ? COLOR_ON : COLOR_OFF));
+            device()->setButtonLed(button_, buttonState_ ^ invertLEDs ? COLOR_ON : COLOR_OFF);
         }
     }
 }
