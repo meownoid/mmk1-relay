@@ -35,7 +35,7 @@ namespace {
     const unsigned char START_NOTE = 36;
     const unsigned char MIDI_NOTE_ON = 144;
     const unsigned char MIDI_NOTE_OFF = 128;
-    const unsigned char MIDI_NOTE_AFTER_TOUCH = 160;
+    const unsigned char MIDI_NOTE_AFTERTOUCH = 160;
     const unsigned char MIDI_NOTE_CC = 176;
 
     const unsigned char CC[11] = {3, 9, 14, 15, 20, 21, 22, 23, 24, 25, 26};
@@ -236,7 +236,7 @@ void DeviceManager::keyUpdated(unsigned index_, double value_, bool shiftPressed
     double velocity = std::pow(padVelocities[index_], PAD_VELOCITY_EXPONENT) * 127.0;
 
     if (action == PadAction::NOTE_AFTERTOUCH) {
-        noteMessage[0] = MIDI_NOTE_AFTER_TOUCH;
+        noteMessage[0] = MIDI_NOTE_AFTERTOUCH;
         device()->setKeyLed(index_, {static_cast<uint8_t>(velocity)});
     } else if (action == PadAction::NOTE_ON) {
         noteMessage[0] = MIDI_NOTE_ON;

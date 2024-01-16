@@ -21,7 +21,7 @@ To begin, clone and build the [modified version](https://github.com/meownoid/cab
 Next, make sure to install required dependencies.
 
 ```
-brew install rtmidi boost
+brew install rtmidi boost cxxopts
 ```
 
 Clone the repository alongside the `cabl` (so both `cabl` and `mmk1-relay` are in the same directory) and proceed to build the project.
