@@ -24,7 +24,7 @@ Next, make sure to install required dependencies.
 brew install rtmidi boost
 ```
 
-Clone the repository and proceed to build the project.
+Clone the repository alongside the `cabl` (so both `cabl` and `mmk1-relay` are in the same directory) and proceed to build the project.
 
 ```
 git clone https://github.com/meownoid/mmk1-relay.git
