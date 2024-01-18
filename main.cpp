@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <cxxopts.hpp>
 
+#include <cabl/devices/Coordinator.h>
+
 #include "DeviceManager.h"
 
 using namespace sl;
@@ -35,6 +37,9 @@ int main(int argc, char** argv) {
     std::string text = result["text"].as<std::string>();
 
     DeviceManager deviceManager({}, midiPort, oscServerAddress, oscServerPort, invertLEDs, invertShift, text);
+    Coordinator coordinator(&deviceManager);
+    coordinator.scan();
+    coordinator.run();
 
     std::cout << "Type 'q' and hit ENTER to quit." << std::endl;
 
