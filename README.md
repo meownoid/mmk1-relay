@@ -14,6 +14,11 @@ Check out command line arguments and their descriptions.
 ./mmk1-relay -h
 ```
 
+## Known Issues
+
+* Device must be plugged in before running the `mmk1-relay`
+* Un-plugging and plugging back the device during the `mmk1-relay` runtime is not supportd, if device is re-plugged, `mmk1-relay` should be restarted
+
 ## Installation
 
 To begin, clone and build the [modified version](https://github.com/meownoid/cabl) of the cabl library.

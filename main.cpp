@@ -36,7 +36,15 @@ int main(int argc, char** argv) {
     bool invertShift = result["invert-shift"].as<bool>();
     std::string text = result["text"].as<std::string>();
 
-    DeviceManager deviceManager({}, midiPort, oscServerAddress, oscServerPort, invertLEDs, invertShift, text);
+    DeviceManager deviceManager(
+        {"Maschine Controller", 0x17CC, 0x0808},
+        midiPort,
+        oscServerAddress,
+        oscServerPort,
+        invertLEDs,
+        invertShift,
+        text
+    );
     Coordinator coordinator(&deviceManager);
     coordinator.scan();
     coordinator.run();
