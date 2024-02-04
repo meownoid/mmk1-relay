@@ -18,11 +18,11 @@ namespace {
     const sl::Color COLOR_ON{0xff};
     const sl::Color COLOR_OFF{0x00};
 
-    const double PAD_THRESHOLD_ON = 0.04;
+    const double PAD_THRESHOLD_ON = 0.03;
     const double PAD_THRESHOLD_OFF = 0.01;
-    const double PAD_VELOCITY_MOMENTUM = 0.8;
+    const double PAD_VELOCITY_MOMENTUM = 0.9;
     const double PAD_VELOCITY_EXPONENT = 0.6;
-    const std::chrono::milliseconds PAD_NOTE_ON_DELAY(5);
+    const std::chrono::milliseconds PAD_NOTE_ON_DELAY(2);
     const std::chrono::milliseconds PAD_NOTE_OFF_DELAY(10);
 
     const double ENCODER_MULTIPLIER = 32.0;
